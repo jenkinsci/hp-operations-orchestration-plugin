@@ -8,7 +8,7 @@
   </parent>
 
   <artifactId>hp-operations-orchestration-automation-execution-plugin</artifactId>
-  <version>1.0.3-SNAPSHOT</version>
+  <version>1.0.4-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <name>HP Operations Orchestration Automation Execution Plugin</name>
   <description>This plugin enables executing HP Operations Orchestration flows as build-steps.</description>
