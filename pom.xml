@@ -28,6 +28,11 @@
   </scm>
   
   <developers>
+	<developer>
+      <id>franky4ro</id>
+      <name>Dan Albu</name>
+      <email>danalbu85@gmail.com</email>
+    </developer>	
     <developer>
 	  <id>nathang</id>	
       <name>Nathan Grunzweig</name>
@@ -37,11 +42,6 @@
       <id>lucian_cm</id>
       <name>Lucian Musca</name>
       <email>lucian-cristian.musca@hp.com</email>
-    </developer>
-	<developer>
-      <id>danalbu</id>
-      <name>Dan Albu</name>
-      <email>danalbu85@gmail.com</email>
     </developer>	
   </developers>
   
