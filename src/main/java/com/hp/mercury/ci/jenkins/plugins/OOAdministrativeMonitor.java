@@ -44,7 +44,7 @@ public final class OOAdministrativeMonitor extends AdministrativeMonitor {
         Collection<String> errors = CollectionUtils.map(urlConfigurationErrors,
                 new Handler<String, Exception>() {
 
-                    @Override
+                  //  @Override
                     public String apply(Exception node) {
 
                         return node.getMessage() + "\n";

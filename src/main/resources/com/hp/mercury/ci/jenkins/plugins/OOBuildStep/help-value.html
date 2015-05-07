@@ -1,0 +1,18 @@
+<div>
+    Write the value you want to pass to the flow. You can also use variables to send a list of values if the
+    flow uses a delimiter ( , ). For that you need to inject in the Jenkins Job additional environment variable.
+    You can use<a href="https://wiki.jenkins-ci.org/display/JENKINS/EnvInject+Plugin"> EnvInject Plugin !</a>
+    <pre>E.g:
+    <tt>192.168.0.1</tt>
+    <tt>8080</tt>
+    </pre>
+    <pre>E.g: Using variables:
+    <tt>Inject properties in the build:
+    list_of_ips=192.168.0.1,192.168.1.0,192.168.2.0    </tt>
+    <tt>${list_of_ips}</tt>
+    <tt>Inject properties in the build:
+    list_of_ports=8080,8090,9000,9100</tt>
+    <tt>${list_of_ports}</tt>
+
+    </pre>
+</div>

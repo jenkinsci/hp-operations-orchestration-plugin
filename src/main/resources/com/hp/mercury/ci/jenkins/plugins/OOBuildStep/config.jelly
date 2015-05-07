@@ -113,7 +113,7 @@
 
                   var flowsSelector = document.getElementById('selectedFlow' + buildStepId);
 
-                  //remember the perviously selected flow, so that if it still exists after refresh we can reselect it
+                  //remember the previously selected flow, so that if it still exists after refresh we can reselect it
                   var previouslySelectedFlow = flowsSelector.options[flowsSelector.selectedIndex].value;
 
                   //leave the first "empty" option
@@ -202,173 +202,181 @@
   <j:invokeStatic var="theEmptyList" className="java.util.Collections" method="emptyList"/>
   <j:set var="ooArgs" value="${instance.getArgs()}" defaultValue="${theEmptyList}"/>
 
-
-  <f:entry title="Basepath" field="basepath">
-
-    <!-- the onchange isn't too much, the function makes sure there's a server chosen and not the empty default
-    so if we change a value here and no server was chosen yet - no big deal.
-    if we did already choose a server then it makes sense to refresh the flows.
-    -->
-    <f:textbox id="basepath${buildStepAjaxId}" default="/Library" onChange="validateBasepathAndRefreshFlows('${buildStepAjaxId}')" />
-  </f:entry>
-
   <!-- display configured oo servers to select from -->
-  <f:entry title="Select HP Operations Orchestration Server" name="ooServer">
-    <select class="setting-input" id="ooServer${buildStepAjaxId}" name="ooServer" onChange="refreshServerFlows('${buildStepAjaxId}',false)">
+  <f:entry title="Select HP Operations Orchestration Server" name="ooServer" field="selectServer">
+      <select class="setting-input" id="ooServer${buildStepAjaxId}" name="ooServer" onChange="refreshServerFlows('${buildStepAjaxId}',false)">
 
-        <j:choose>
-            <j:when test="${selectedServer == null}">
-                <option value="" selected="true"> -- select one -- </option>
-            </j:when>
-            <j:otherwise>
-                <option value=""> -- select one -- </option>
-            </j:otherwise>
-        </j:choose>
+          <j:choose>
+              <j:when test="${selectedServer == null}">
+                  <option value="" selected="true"> -- select one -- </option>
+              </j:when>
+              <j:otherwise>
+                  <option value=""> -- select one -- </option>
+              </j:otherwise>
+          </j:choose>
 
-        <j:forEach var="serverName" items="${servers}">
+          <j:forEach var="serverName" items="${servers}">
 
-        <j:invokeStatic var="server" className="com.hp.mercury.ci.jenkins.plugins.oo.core.OOAccessibilityLayer" method="getOOServer">
-            <j:arg value="${serverName}" type="java.lang.String"/>
-          </j:invokeStatic>
+          <j:invokeStatic var="server" className="com.hp.mercury.ci.jenkins.plugins.oo.core.OOAccessibilityLayer" method="getOOServer">
+              <j:arg value="${serverName}" type="java.lang.String"/>
+            </j:invokeStatic>
 
-            <j:choose>
-                <j:when test="${server.getUniqueLabel().equals(selectedServer.getUniqueLabel())}">
-                    <option value="${server.getUniqueLabel()}" selected="true">${server.getUniqueLabel()}</option>
-                </j:when>
-                <j:otherwise>
-                    <option value="${server.getUniqueLabel()}">${server.getUniqueLabel()}</option>
-                </j:otherwise>
-            </j:choose>
-        </j:forEach>
-    </select>
-  </f:entry>
-
-
-  <j:set var="selectedFlow" value="${instance.getOOFlow()}" defaultValue="${null}"/>
-
-  <f:entry title="Select Flow to Execute on Server">
-    <select class="setting-input " id="selectedFlow${buildStepAjaxId}" name="selectedFlow" onChange="clearFlowParameters('${buildStepAjaxId}');">
-
-        <option value=""> -- select one -- </option>
-
-        <j:if test="${selectedFlow != null}">
-            <option value="${selectedFlow.getId()}" selected="true">${selectedFlow.getId()}</option>
-        </j:if>
-
-    </select>
-    <td><a id="refreshButton${buildStepAjaxId}" onClick="refreshServerFlows('${buildStepAjaxId}',true);"><img alt="title" src="${app.getRootUrl()}plugin/oo/images/refresh.png"/></a></td>
-  </f:entry>
+              <j:choose>
+                  <j:when test="${server.getUniqueLabel().equals(selectedServer.getUniqueLabel())}">
+                      <option value="${server.getUniqueLabel()}" selected="true">${server.getUniqueLabel()}</option>
+                  </j:when>
+                  <j:otherwise>
+                      <option value="${server.getUniqueLabel()}">${server.getUniqueLabel()}</option>
+                  </j:otherwise>
+              </j:choose>
+          </j:forEach>
+      </select>
+    </f:entry>
 
 
-  <f:entry title="Set Parameter Values for Flow on Server" >
-    <div id="argsContainer${buildStepAjaxId}">
-        <f:repeatable var="arg" name="args" items="${ooArgs}" minimum="${ooArgs.size()}">
-        <table width="100%">
+    <j:set var="selectedFlow" value="${instance.getOOFlow()}" defaultValue="${null}"/>
 
-            <j:set var="argName" value="${arg.getName()}" defaultValue=""/>
-            <f:entry title="Name" field="name">
-                <f:textbox value="${argName}"/>
-            </f:entry>
+    <f:entry title="Select Flow to Execute on Server" field="selectFlow">
+      <select class="setting-input " id="selectedFlow${buildStepAjaxId}" name="selectedFlow" onChange="clearFlowParameters('${buildStepAjaxId}');">
 
-            <j:set var="argValue" value="${arg.getValue()}" defaultValue=""/>
-            <f:entry title="Value" field="value">
-                <f:textbox value="${argValue}"/>
-            </f:entry>
+          <option value=""> -- select one -- </option>
 
-            <f:entry title="">
-                <div align="right">
-                  <f:repeatableDeleteButton value="Delete"/>
-                </div>
-            </f:entry>
-        </table>
-        </f:repeatable>
-    </div>
+          <j:if test="${selectedFlow != null}">
+              <option value="${selectedFlow.getId()}" selected="true">${selectedFlow.getId()}</option>
+          </j:if>
 
-  </f:entry>
+      </select>
+      <td><a id="refreshButton${buildStepAjaxId}" onClick="refreshServerFlows('${buildStepAjaxId}',true);"><img alt="title" src="${app.getRootUrl()}plugin/hp-operations-orchestration-automation-execution-plugin/images/refresh.png"/></a></td>
+    </f:entry>
+      <f:advanced>
+    <f:entry title="Basepath" field="basepath">
 
-    <tr>
-           <td class="setting-leftspace"><st:nbsp/></td>
-       <td class="setting-name" colspan="3">
-        <input name="changeBuildResult" checked="${instance.getChangeBuildResult()}" type="checkbox"
-        onClick="setVisible('ooStepResult${buildStepAjaxId}', this.checked)"/>
-        Change Build Result Status...
-    </td>
-    </tr>
+      <!-- the onchange isn't too much, the function makes sure there's a server chosen and not the empty default
+      so if we change a value here and no server was chosen yet - no big deal.
+      if we did already choose a server then it makes sense to refresh the flows.
+      -->
+      <f:textbox id="basepath${buildStepAjaxId}" default="/Library" onChange="validateBasepathAndRefreshFlows('${buildStepAjaxId}')" />
+    </f:entry>
+
+      <f:entry title="Step Execution Timeout (ms)" field="stepExecutionTimeout">
+
+        <f:textbox id="stepExecutionTimeout{buildStepAjaxId}" value="${instance.getStepExecutionTimeout()}" />
+
+      </f:entry>
+
+    <f:entry title="Set Parameter Values for Flow on Server" field="setParameter">
+      <div id="argsContainer${buildStepAjaxId}">
+          <f:repeatable var="arg" name="args" items="${ooArgs}" minimum="${ooArgs.size()}">
+          <table width="100%">
+
+              <j:set var="argName" value="${arg.getName()}" defaultValue=""/>
+              <f:entry title="Name" field="name">
+                  <f:textbox value="${argName}"/>
+              </f:entry>
+
+              <j:set var="argValue" value="${arg.getValue()}" defaultValue=""/>
+              <f:entry title="Value" field="value">
+                  <f:textbox value="${argValue}"/>
+              </f:entry>
+
+              <f:entry title="">
+                  <div align="right">
+                    <f:repeatableDeleteButton value="Delete"/>
+                  </div>
+              </f:entry>
+          </table>
+          </f:repeatable>
+      </div>
+      <script type="text/javascript">
+          function hideshow() {
+              var showhide=document.getElementById('text');
+              if(showhide.style.visibility=="hidden")
+              {
+                  showhide.style.visibility="visible";
+              }
+              else{
+                  showhide.style.visibility="hidden";
+              }
+          }
+      </script>
 
 
+      <div id="abc" align="right">
+           <f:Button value="Delete"/>
+      </div>
 
-    <j:invokeStatic var="matchStrategies" className="com.hp.mercury.ci.jenkins.plugins.oo.matcher.MatchStrategy" method="getMatchStrategies"/>
+    </f:entry>
 
-    <!--TODO this same function exists in conditional-trigger - unify in jenkins-commons-->
-    <j:invokeStatic
-          var="possibleResultStates"
-          className="com.hp.mercury.ci.jenkins.plugins.OOBuildStep"
-          method="possibleResults"/>
-   <tr>
-       <td class="setting-leftspace"><st:nbsp/></td>
-   <td class="setting-name" colspan="3">
-    <div id="ooStepResult${buildStepAjaxId}" style="visibility:${instance.getChangeBuildResult() ? 'visible;' : 'hidden;'}">
+     <f:entry title="Change Build Result Status ( leave empty for no matching )" field="changeResult">
+     <j:invokeStatic var="matchStrategies" className="com.hp.mercury.ci.jenkins.plugins.oo.matcher.MatchStrategy" method="getMatchStrategies"/>
 
-            if the returned variable
+      <!--TODO this same function exists in conditional-trigger - unify in jenkins-commons-->
+      <j:invokeStatic
+            var="possibleResultStates"
+            className="com.hp.mercury.ci.jenkins.plugins.OOBuildStep"
+            method="possibleResults"/>
 
-            <input type="text" name="retVariableToCheck"
-                value="${instance.getRetVariableToCheck() != null ? instance.getRetVariableToCheck() : 'flowResponse' }"/>
+      <div id="ooStepResult${buildStepAjaxId}" style="visibility:'visible;'">
 
-            <select name="comparisonOrdinal">
-                <j:forEach var="matchStrategy" varStatus="loop" items="${matchStrategies}">
+              if the returned variable
 
-                    <j:choose>
-                        <j:when test="${instance.getMatchStrategy().ordinal().equals(loop.index)}">
-                            <option selected="selected" value="${loop.index}">${matchStrategy}</option>
-                        </j:when>
-                        <j:otherwise>
-                            <option value="${loop.index}">${matchStrategy}</option>
-                        </j:otherwise>
-                    </j:choose>
+              <input type="text" name="retVariableToCheck"
+                  value="${instance.getRetVariableToCheck() != null ? instance.getRetVariableToCheck() : '' }"/>
 
-                </j:forEach>
-            </select>
+              <select name="comparisonOrdinal">
+                  <j:forEach var="matchStrategy" varStatus="loop" items="${matchStrategies}">
 
-            the value
+                      <j:choose>
+                          <j:when test="${instance.getMatchStrategy().ordinal().equals(loop.index)}">
+                              <option selected="selected" value="${loop.index}">${matchStrategy}</option>
+                          </j:when>
+                          <j:otherwise>
+                              <option value="${loop.index}">${matchStrategy}</option>
+                          </j:otherwise>
+                      </j:choose>
 
-            <input type="text" name="valueToCompareWith"
-                value="${instance.getValueToCompareWith() != null ? instance.getValueToCompareWith() : 'failure'}"/>
+                  </j:forEach>
+              </select>
 
-            then mark this build as
+              the value
 
-            <select name="desiredResultType">
-                <j:forEach var="resultType" items="${possibleResultStates}">
-                    <j:choose>
+              <input type="text" name="valueToCompareWith"
+                  value="${instance.getValueToCompareWith() != null ? instance.getValueToCompareWith() : 'failure'}"/>
 
-                        <j:when test="${instance.getDesiredResultType() != null}">
-                            <j:choose>
-                                <j:when test="${instance.getDesiredResultType().toString().equals(resultType)}">
-                                    <option selected="selected" value="${resultType}">${resultType}</option>
-                                </j:when>
-                                <j:otherwise>
-                                    <option value="${resultType}">${resultType}</option>
-                                </j:otherwise>
-                            </j:choose>
-                        </j:when>
+              then mark this build as
 
-                        <j:otherwise>
-                            <j:choose>
-                                <j:when test="${resultType.equals(&quot;UNSTABLE&quot;)}">
-                                    <option selected="selected" value="${resultType}">${resultType}</option>
-                                </j:when>
-                                <j:otherwise>
-                                    <option value="${resultType}">${resultType}</option>
-                                </j:otherwise>
-                            </j:choose>
-                        </j:otherwise>
+              <select name="desiredResultType">
+                  <j:forEach var="resultType" items="${possibleResultStates}">
+                      <j:choose>
 
-                    </j:choose>
-                </j:forEach>
-            </select>
+                          <j:when test="${instance.getDesiredResultType() != null}">
+                              <j:choose>
+                                  <j:when test="${instance.getDesiredResultType().toString().equals(resultType)}">
+                                      <option selected="selected" value="${resultType}">${resultType}</option>
+                                  </j:when>
+                                  <j:otherwise>
+                                      <option value="${resultType}">${resultType}</option>
+                                  </j:otherwise>
+                              </j:choose>
+                          </j:when>
 
-    </div>
-    </td></tr>
+                          <j:otherwise>
+                              <j:choose>
+                                  <j:when test="${resultType.equals(&quot;UNSTABLE&quot;)}">
+                                      <option selected="selected" value="${resultType}">${resultType}</option>
+                                  </j:when>
+                                  <j:otherwise>
+                                      <option value="${resultType}">${resultType}</option>
+                                  </j:otherwise>
+                              </j:choose>
+                          </j:otherwise>
 
+                      </j:choose>
+                  </j:forEach>
+              </select>
+      </div>
+      </f:entry>
+      </f:advanced>
 </j:jelly>
 
 

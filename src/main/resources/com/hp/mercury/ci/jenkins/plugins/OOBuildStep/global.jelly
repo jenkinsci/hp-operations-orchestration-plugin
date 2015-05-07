@@ -77,10 +77,10 @@
             </j:otherwise>
         </j:choose>
 
-        <f:entry title="Timeout (in seconds)" field="timeout"
+        <!-- <f:entry title="Timeout (in seconds)" field="stepExecutionTimeout"
           description="the amount of time jenkins should wait before giving up on a non-responsive OO server.">
           <f:textbox value="${descriptor.getTimeout()}" />
-        </f:entry>
+        </f:entry> -->
 
         <f:entry title="Truststore File (absolute path of JKS truststore)" field="keystorePath">
             <f:textbox id="oo.keystore.path" checkUrl="'descriptorByName/OOBuildStep/checkKeystorePath?value='+escape(this.value)"/>
@@ -89,9 +89,8 @@
         <f:entry title="Truststore Password" field="keystorePassword">
             <f:password checkUrl="'descriptorByName/OOBuildStep/checkKeystorePassword?value='+escape(this.value)+'&amp;path='+escape(document.getElementById('oo.keystore.path').value)"/>
         </f:entry>
-
-      <f:entry title="Configure HP Operations Orchestration Server"
-      description="add parameters to allow jenkins to connect to an HPOO server, allowing you to execute flows from that server as buildsteps in your jobs.">
+      <f:advanced title="Show Servers" align="left">
+      <f:entry title="Configure HP Operations Orchestration Server" field="configureServer">
           <f:repeatable var="ooServer" name="ooServers" items="${instance.getOoServers(false).values()}" minimum="${instance.getOoServers(false).size()}">
             <table width="100%">
                 <f:entry title="Unique Label" field="uniqueLabel"
@@ -120,7 +119,7 @@
             </table>
           </f:repeatable>
       </f:entry>
-
+        </f:advanced>
         <!-- workaround for js not having onload event for html elements. bulk validate all hostUrls during load. -->
         <![CDATA[
       <script language="JavaScript" type="text/javascript">

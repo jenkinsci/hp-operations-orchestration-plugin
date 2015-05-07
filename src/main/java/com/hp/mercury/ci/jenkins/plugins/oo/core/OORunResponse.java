@@ -49,7 +49,7 @@ public class OORunResponse {
         if (this.reportUrl == null) {
             final ArrayList<OORunReturnItem> itemsCopy = new ArrayList<OORunReturnItem>(items);
             CollectionUtils.filter(itemsCopy, new Criteria<OORunReturnItem>() {
-                @Override
+                //@Override
                 public boolean isSuccessful(OORunReturnItem tested) {
                     return tested.getName().equals("displayRunReportUrl");
                 }
