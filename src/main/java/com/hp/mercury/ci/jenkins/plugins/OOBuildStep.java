@@ -83,6 +83,7 @@ public class OOBuildStep extends Builder {
     private Result desiredResultType;
     private String valueToCompareWith;
     private String stepExecutionTimeout;
+    private String runName;
     private MatchStrategy matchStrategy;
     private String retVariableToCheck;
     private String basepath;
@@ -211,7 +212,8 @@ public class OOBuildStep extends Builder {
             int comparisonOrdinal,
             String valueToCompareWith,
             String desiredResultType,
-            String stepExecutionTimeout) throws Descriptor.FormException {
+            String stepExecutionTimeout,
+            String runName) throws Descriptor.FormException {
 
         //this should never happen..
         if (ooServer == null || ooServer.isEmpty() || !OOAccessibilityLayer.getAvailableServers().contains(ooServer)) {
@@ -234,6 +236,7 @@ public class OOBuildStep extends Builder {
         this.args = args;
         this.basepath = basepath;
         this.stepExecutionTimeout = stepExecutionTimeout;
+        this.runName = runName;
         setStepExecutionTimeout(stepExecutionTimeout);
 
         if (
@@ -688,7 +691,7 @@ public class OOBuildStep extends Builder {
             listener.getLogger().println("The flow: " + selectedFlowS + " with UUID " + selectedFlowUUID + " is executing...");
             // run the flow on Central
             listener.getLogger().getClass();
-            String feed = OOAccessibilityLayer.run10x(selectedFlowUUID, argsToUse, urlString, stepExecutionTimeout, listener);
+            String feed = OOAccessibilityLayer.run10x(selectedFlowUUID, argsToUse, urlString, stepExecutionTimeout, listener, runName);
 
             listener.annotate(new SimpleHtmlNote(feed));
             listener.getLogger().println("Execution URL " + OOAccessibilityLayer.feedURL);
@@ -724,6 +727,13 @@ public class OOBuildStep extends Builder {
                 if (stepInfo.get("stepName").getAsString().equals("Error : failure")) {
 
                     build.setResult(Result.FAILURE);
+                }
+
+                // set build status warning if last step is "No Action Taken"
+
+                if (stepInfo.get("stepName").getAsString().contains("No Action Taken")) {
+
+                    build.setResult(Result.UNSTABLE);
                 }
 
             } catch (JsonException e) {
@@ -828,6 +838,10 @@ public class OOBuildStep extends Builder {
 
     public String getStepExecutionTimeout(){
         return stepExecutionTimeout;
+    }
+
+    public String getRunName(){
+        return runName;
     }
 
 

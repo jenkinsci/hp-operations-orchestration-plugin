@@ -258,6 +258,11 @@
       <f:textbox id="basepath${buildStepAjaxId}" default="/Library" onChange="validateBasepathAndRefreshFlows('${buildStepAjaxId}')" />
     </f:entry>
 
+      <f:entry title="Run Name" field="runName">
+
+          <f:textbox id="runName{buildStepAjaxId}" value="${instance.getRunName()}" default="OO Run" />
+        </f:entry>
+
       <f:entry title="Step Execution Timeout (ms)" field="stepExecutionTimeout">
 
         <f:textbox id="stepExecutionTimeout{buildStepAjaxId}" value="${instance.getStepExecutionTimeout()}" />
