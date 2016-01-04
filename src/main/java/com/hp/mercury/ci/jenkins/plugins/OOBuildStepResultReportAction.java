@@ -8,31 +8,57 @@ import com.hp.mercury.ci.jenkins.plugins.oo.core.OORunRequest;
 import com.hp.mercury.ci.jenkins.plugins.oo.core.OORunResponse;
 import hudson.model.Action;
 
+import java.net.URL;
+
 
 public class OOBuildStepResultReportAction implements Action {
 
-    private OORunResponse runResult;
-    private OORunRequest runRequest;
+//    private OORunResponse runResult;
+//    private OORunRequest runRequest;
+//
+//    public OOBuildStepResultReportAction(OORunRequest request, OORunResponse ooBuildStepResult) {
+//        this.runRequest = request;
+//        this.runResult = ooBuildStepResult;
+//    }
+//
+//  //  @Override
+//    public String getIconFileName() {
+//        return "document.png";
+//    }
+//
+//  //  @Override
+//    public String getDisplayName() {
+//        return "Build Step Result for " + runRequest.getFlow().getId();
+//    }
+//
+//  //  @Override
+//    public String getUrlName() {
+//
+//        return this.runResult.getReportUrl();
+//    }
 
-    public OOBuildStepResultReportAction(OORunRequest request, OORunResponse ooBuildStepResult) {
-        this.runRequest = request;
-        this.runResult = ooBuildStepResult;
+
+
+    private String flowName;
+    private String runUrl;
+
+    public OOBuildStepResultReportAction(String runUrl) {
+        this.runUrl=runUrl;
     }
 
-  //  @Override
+//    @Override
     public String getIconFileName() {
         return "document.png";
     }
 
-  //  @Override
+    //  @Override
     public String getDisplayName() {
-        return "Build Step Result for " + runRequest.getFlow().getId();
+        return "Link to run in OO";
     }
 
-  //  @Override
+//    @Override
     public String getUrlName() {
-
-        return this.runResult.getReportUrl();
+        return this.runUrl;
     }
 
 }

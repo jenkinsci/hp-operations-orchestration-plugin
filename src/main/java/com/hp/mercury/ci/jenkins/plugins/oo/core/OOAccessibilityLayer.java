@@ -4,7 +4,17 @@
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 package com.hp.mercury.ci.jenkins.plugins.oo.core;
 
+import com.google.common.collect.Lists;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.reflect.TypeToken;
+import com.hp.mercury.ci.jenkins.plugins.oo.core.oo10x.WaitExecutionResult;
+import com.hp.mercury.ci.jenkins.plugins.oo.entities.ExecutionStatusState;
+import com.hp.mercury.ci.jenkins.plugins.oo.entities.ExecutionSummaryVO;
+import com.hp.mercury.ci.jenkins.plugins.oo.entities.ExecutionVO;
+import com.hp.mercury.ci.jenkins.plugins.oo.entities.RecordBoundInputVO;
+import com.hp.mercury.ci.jenkins.plugins.oo.entities.StepLog;
+import com.hp.mercury.ci.jenkins.plugins.oo.entities.TriggeredExecutionDetailsVO;
 import com.hp.mercury.ci.jenkins.plugins.oo.utils.StringUtils;
 import com.hp.mercury.ci.jenkins.plugins.oo.http.JaxbEntity;
 import com.hp.mercury.ci.jenkins.plugins.OOBuildStep;
@@ -13,21 +23,22 @@ import org.apache.commons.httpclient.HttpStatus;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.CookieStore;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.cookie.Cookie;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonObject;
+import org.springframework.util.Assert;
 
 import javax.xml.bind.JAXB;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -37,13 +48,21 @@ public class OOAccessibilityLayer {
     private static final String REST_SERVICES_URL_PATH = "services/rest/";
     private static final String LIST_OPERATION_URL_PATH = "list/";
     private static final String RUN_OPERATION_URL_PATH = "run/";
-    private static final String EXECUTIONS_API = "/executions";
+    private static final String EXECUTIONS_API = "/executions/";
+    private final static String EXECUTE_SUMMARY_POSTFIX = "/summary/";
+    private final static String EXECUTION_STEPS_COUNT_POSTFIX = "/steps/count";
 
     private static final DefaultHttpClient client = OOBuildStep.getHttpClient();
     private static final JsonParser parser = new JsonParser();
+    private static final Gson gson = new Gson();
 
-    public static String feedURL;
+    public String feedURL;
+    public String runURL;
+    public String runId;
+
     private static String jsonExecutionResult;
+
+
 
     public static OOServer getOOServer(String uniqueLabel) {
 
@@ -101,6 +120,9 @@ public class OOAccessibilityLayer {
         final HttpPost httpPost = new HttpPost(uri);
         httpPost.setEntity(new JaxbEntity(request));
         httpPost.setHeader(HttpHeaders.CONTENT_TYPE, "text/xml");
+//        if (OOBuildStep.getEncodedCredentials()!=null) {
+//            httpPost.addHeader("Authorization", "Basic " + new String(OOBuildStep.getEncodedCredentials()));
+//        }
 
         HttpResponse response;
 
@@ -138,116 +160,261 @@ public class OOAccessibilityLayer {
         return response.getStatusLine().getStatusCode();
     }
 
-    public static String run10x(String selectedFlowUUID, List<OOArg> argsToUse, String urlString, String timeout, BuildListener listener) throws IOException, InterruptedException {
+    public TriggeredExecutionDetailsVO run10x(String selectedFlowUUID, List<OOArg> argsToUse, String urlString, String timeout, BuildListener listener, String runName) throws IOException, InterruptedException {
 
-        final URI uri = OOBuildStep.URI(urlString + EXECUTIONS_API);
-        final HttpPost httpPost = new HttpPost(uri);
+        final HttpPost httpPost = new HttpPost(urlString + EXECUTIONS_API);
 
-        // form inputs for POST request
-        String inputs = "{";
-        for (int i = 0; i < argsToUse.size(); i++) {
-
-            inputs += "\"" + argsToUse.get(i).getName() + "\" : \"" + argsToUse.get(i).getValue() + "\"";
-
-            if (i < argsToUse.size() - 1)
-                inputs += ",";
+        //Convert inputs to the required type
+        Map<String, String> inputs = new HashMap<String, String>();
+        for (OOArg arg : argsToUse) {
+            inputs.put(arg.getName(), arg.getValue());
         }
-        inputs = inputs + "}";
 
         // Create the POST object and add the parameters
-
-        StringEntity entity = new StringEntity("{\"uuid\" : \"" + selectedFlowUUID + "\", \"inputs\" :" + inputs + "}", "UTF-8");
-
-
+        ExecutionVO executionVO = new ExecutionVO();
+        executionVO.setUuid(selectedFlowUUID);
+        if (runName != null && !runName.equals("")) executionVO.setRunName(runName);
+        executionVO.setInputs(inputs);
+        String body = gson.toJson(executionVO);
+        StringEntity entity = new StringEntity(body, "UTF-8");
         httpPost.setEntity(entity);
+
+        //Authenticate
+        if (OOBuildStep.getEncodedCredentials()!=null) {
+            httpPost.addHeader("Authorization", "Basic " + new String(OOBuildStep.getEncodedCredentials()));
+        }
+
+        //Add relevant headers
         httpPost.setHeader("Content-Type", "application/json");   // this is mandatory in order for the request to work
 
+        //Handle CSRF tokens cookies
+        client.setCookieStore(handleCsrfCookies(client.getCookieStore()));
+
+        //Execute the request
         HttpResponse response = client.execute(httpPost);
 
-        HttpEntity responseEntity = response.getEntity();
-        InputStream is = responseEntity.getContent();
+        //Verify the response is 201
+        Assert.isTrue(response.getStatusLine().getStatusCode() == 201, "Invalid response code [" + response.getStatusLine().getStatusCode() + "]");
 
-        JsonObject element = (JsonObject) (parser.parse(OOAccessibilityUtils.convertStreamToString(is)));
-        feedURL = element.get("feedUrl").getAsString();
+        //Read the response body
+        String responseBody = EntityUtils.toString(response.getEntity());
 
-        String executionResult = "";
-        String currentExecutionResult = "";
+//        HttpEntity responseEntity = response.getEntity();
+//        InputStream is = responseEntity.getContent();
 
-        boolean isCompleted = false;
-        int waitCount = 0;
-        // wait until the execution on Central completes
-        HttpGet httpGet = new HttpGet(feedURL + "?pageSize=10000"); // hack !!!
-        httpGet.setHeader("Content-Type", "application/json");
-        if (OOBuildStep.getEncodedCredentials() != null) {
+        //Extract data from response
+//        JsonObject element = (JsonObject) (parser.parse(OOAccessibilityUtils.convertStreamToString(is)));
+        TriggeredExecutionDetailsVO triggeredExecutionDetailsVO = gson.fromJson(responseBody, TriggeredExecutionDetailsVO.class);
+
+        runId = triggeredExecutionDetailsVO.getExecutionId();
+        listener.getLogger().println("Run ID : " + runId);
+        runURL = triggeredExecutionDetailsVO.getFeedUrl().split("/oo/")[0] + "/oo/#/runtimeWorkspace/runs/" + triggeredExecutionDetailsVO.getExecutionId();
+
+        listener.getLogger().println("Execution URL " + runURL);
+
+        return triggeredExecutionDetailsVO;
+    }
+
+
+    public WaitExecutionResult waitExecutionComplete (TriggeredExecutionDetailsVO triggeredExecutionDetailsVO, String timeout, BuildListener listener, String urlString) throws InterruptedException, IOException {
+        feedURL = triggeredExecutionDetailsVO.getFeedUrl();
+
+        //close connection
+//        is.close();
+
+        //Read run details
+        long defaultTimeout = 600000;
+        Long timeoutLong = timeout.isEmpty() ? defaultTimeout : Long.parseLong(timeout);
+        listener.getLogger().println("Flow execution timeout : " + timeoutLong + " ms");
+
+
+
+        //Wait the run will completed
+        List<ExecutionSummaryVO> executionSummary;
+        ExecutionStatusState executionStatusState;
+        int prevStepCount = 0;
+        Boolean newLine = false;
+        do {
+            Long sleepIntervalInMs = timeoutLong>5000 ? 5000 : timeoutLong;
+            timeoutLong -= (sleepIntervalInMs);
+            Thread.sleep(sleepIntervalInMs);
+
+            //Get run details
+            HttpGet httpGet = new HttpGet(urlString + EXECUTIONS_API + runId + EXECUTE_SUMMARY_POSTFIX);
+
+            //Handle CSRF tokens cookies
+            client.setCookieStore(handleCsrfCookies(client.getCookieStore()));
+
+            //Authenticate
+            if (OOBuildStep.getEncodedCredentials()!=null) {
+                httpGet.addHeader("Authorization", "Basic " + new String(OOBuildStep.getEncodedCredentials()));
+            }
+
+            //Execute the request
+            HttpResponse response = client.execute(httpGet);
+
+            //Verify the response is OK
+            Assert.isTrue(response.getStatusLine().getStatusCode() == 200, "Invalid response code [" + response.getStatusLine().getStatusCode() + "]");
+
+            String responseBody = EntityUtils.toString(response.getEntity());
+
+            executionSummary = gson.fromJson(responseBody, new TypeToken<List<ExecutionSummaryVO>>() {
+            }.getType());
+            executionStatusState = executionSummary.get(0).getStatus();
+
+            //get steps details for steps progress
+            httpGet = new HttpGet(urlString + EXECUTIONS_API + runId + EXECUTION_STEPS_COUNT_POSTFIX);
+
+            //Handle CSRF tokens cookies
+            client.setCookieStore(handleCsrfCookies(client.getCookieStore()));
+
+            //Authenticate
+            if (OOBuildStep.getEncodedCredentials()!=null) {
+                httpGet.addHeader("Authorization", "Basic " + new String(OOBuildStep.getEncodedCredentials()));
+            }
+
+            //Execute the request
+            response = client.execute(httpGet);
+
+            //Verify the response is OK
+            Assert.isTrue(response.getStatusLine().getStatusCode() == 200, "Invalid response code [" + response.getStatusLine().getStatusCode() + "]");
+
+            responseBody = EntityUtils.toString(response.getEntity());
+
+            //printing steps progress
+            int currentStepCount = gson.fromJson(responseBody, new TypeToken<Integer>() {
+            }.getType());
+
+            if (currentStepCount > prevStepCount) {
+                if (newLine){
+                    listener.getLogger().println();
+                }
+                listener.getLogger().println(currentStepCount + " steps were completed");
+                newLine=false;
+            } else {
+                listener.getLogger().print(".");
+                newLine = true;
+            }
+
+            prevStepCount = currentStepCount;
+
+        } while (timeoutLong > 0 &&
+                (executionStatusState.equals(ExecutionStatusState.RUNNING) || executionStatusState.equals(ExecutionStatusState.PENDING_PAUSE)));
+
+
+
+        //get full status name
+        String runResult;
+        if (executionStatusState.equals(ExecutionStatusState.COMPLETED)){
+            runResult = executionStatusState + " - " + executionSummary.get(0).getResultStatusType();
+        }else{
+            //TODO handle also paused runs
+            runResult = executionStatusState.name();
+        }
+
+        WaitExecutionResult waitExecutionResult = new WaitExecutionResult();
+        waitExecutionResult.setLastExecutionResult(executionSummary.get(0).getResultStatusType());
+        waitExecutionResult.setLastExecutionStatus(executionStatusState);
+        waitExecutionResult.setTimedOut(timeoutLong <= 0 &&
+                (executionStatusState.equals(ExecutionStatusState.RUNNING) || executionStatusState.equals(ExecutionStatusState.PENDING_PAUSE)));
+        waitExecutionResult.setStepCount(prevStepCount);
+
+        return waitExecutionResult;
+    }
+
+
+
+
+    public List<StepLog> getStepLog(Long stepCount, String feedURL) throws IOException {
+        //Get steps details
+        HttpGet httpGet = new HttpGet(feedURL + "?pageSize="+stepCount); // hack !!!
+
+        //Handle CSRF tokens cookies
+        client.setCookieStore(handleCsrfCookies(client.getCookieStore()));
+
+        //Authenticate
+        if (OOBuildStep.getEncodedCredentials()!=null) {
             httpGet.addHeader("Authorization", "Basic " + new String(OOBuildStep.getEncodedCredentials()));
         }
 
-        Long timeoutLong;
-        int sleepTimes = 10;
+        //Execute the request
+        HttpResponse response = client.execute(httpGet);
 
-        try {
-            timeoutLong = Long.parseLong(timeout);
-            sleepTimes = (int) (timeoutLong / 60000);
-            if (sleepTimes == 0) {
-                sleepTimes = 1;    // force sleepTimes to be at least 1
-            }
+        //Verify the response is OK
+        Assert.isTrue(response.getStatusLine().getStatusCode() == 200, "Invalid response code ["+response.getStatusLine().getStatusCode()+"]");
 
-        } catch (NumberFormatException e) {
-            timeoutLong = 60000L;
-        }
-        listener.getLogger().println("Step Execution Timeout : " + timeoutLong + " ms");
+        String responseBody = EntityUtils.toString(response.getEntity());
 
-        URL url = new URL(urlString.replace("oo/rest/v1",""));
+        List<StepLog> stepLog = gson.fromJson(responseBody,  new TypeToken<List<StepLog>>() {}.getType());
+//        List<StepLog> stackTrace = createStackTrace(stepLog, "0");
+//        listener.annotate(new SimpleHtmlNote(stackTraceAsString(stackTrace)));
 
-        while ((waitCount < sleepTimes) && (!isCompleted)) {
+//        setJSONExecutionResult(responseBody);
+//        responseBody = formatResult(responseBody);
 
-            if (executionResult.equals(currentExecutionResult)) {       // if nothing changes in the JSON result, the counter starts, else it resets
-
-                if (currentExecutionResult.length() > 0) {              // only count after the first iteration.
-                    waitCount++;
-                    Thread.sleep(60000L);                               // full sleep of 1 minute
-                } else {
-                    Thread.sleep(10000L);                               // smaller sleep in the first iterations, until the log is first populated
-                }
-
-            } else {
-                //get JSON change and print to console
-                // listener.annotate(new SimpleHtmlNote("insideAccess"+formatResult(executionResult.replace(currentExecutionResult, ""))));
-                waitCount = 0;
-                Thread.sleep(10000L);                                   // "happy" sleep of 10 seconds
-                currentExecutionResult = executionResult;
-            }
-
-            // get feedURL
-            executionResult = OOAccessibilityUtils.getStringFromResponse(httpGet);
-
-            if (executionResult.length() > 2) {
-                isCompleted = OOAccessibilityUtils.isExecutionComplete(executionResult); // get the status of the execution from the partial JSON returned from the feedURL.
-            }
-        }
-
-        setJSONExecutionResult(executionResult);
-        executionResult = formatResult(executionResult);
-
-        if (waitCount == sleepTimes) {
-
-            String feed = feedURL.replace("/steps", "").replace("executions/", "executions?runId=");
-            httpGet = new HttpGet(feed);
-            String feed2 = OOAccessibilityUtils.getStringFromResponse(httpGet);
-
-            String status = OOAccessibilityUtils.getExecutionStatus(feed2);
-
-            if (status.equals("COMPLETED")) {
-                executionResult += "\nThe execution ended with success after reaching the timeout of " + timeout + " milliseconds \n\n";
-            } else {
-                return "\n <font color=\"red\"><b>The execution is not complete and exceeded the timeout. It may have been paused or canceled </b></font> \n\n";
-            }
-        }
-
-        return executionResult;
+        return stepLog;
+//        return "";
     }
 
-    public static String formatResult(String executionResult) {
+    public String stackTraceAsString(List<StepLog> stackTrace){
+        String stackTraceString = "\n<font color=\"red\"><b>";
+
+        String indent = "   ";
+        String indentation = indent;
+
+        for (StepLog stepLog : Lists.reverse(stackTrace)){
+            stackTraceString+=stepLog.getStepInfo().getStepName() + " - " + stepLog.getStepInfo().getResponseType() + "\n"+indentation;
+            indentation = indentation + indent;
+        }
+
+        StepLog lastStep = stackTrace.get(stackTrace.size()-1);
+        indentation = indentation.substring(0,indentation.length()-1-indent.length());
+        stackTraceString+="\n"+indentation;
+
+        //Add raw results
+        stackTraceString+="RAW Results: " + lastStep.getRawResult() + "\n" + indentation;
+
+        //Add step inputs
+        Map<String,String> stepInputs = new HashMap<String, String>();
+        for(RecordBoundInputVO recordBoundInputVO : lastStep.getStepInputs()){
+            stepInputs.put(recordBoundInputVO.getName(),recordBoundInputVO.getValue());
+        }
+        stackTraceString+="Step Inputs: " + stepInputs + "\n";
+
+        stackTraceString+="</b></font>\n\n";
+        return stackTraceString;
+    }
+
+    public List<StepLog> createStackTrace(List<StepLog> stepLogList, String startIndex){
+        StepLog lastStep = null;
+        StepLog prevLastStep = null;
+        int maxLocalPathSize = 0;
+
+        //find the last step
+        for (StepLog stepLog : stepLogList) {
+            String path = stepLog.getStepInfo().getPath();
+            if (path.matches("^" + startIndex + ".\\d*")) {
+                String[] splitPath = path.split("\\.");
+                int currentLocalPath = Integer.parseInt(splitPath[splitPath.length - 1]);
+                if (currentLocalPath >= maxLocalPathSize) {
+                    maxLocalPathSize = currentLocalPath;
+                    prevLastStep=lastStep;
+                    lastStep = stepLog;
+                }
+            }
+        }
+
+        List<StepLog> stackTrace;
+        if (lastStep != null) {
+            stackTrace = createStackTrace(stepLogList, prevLastStep.getStepInfo().getPath());  //recursive, find the child last step
+        }else{
+            return new ArrayList<StepLog>();  //no more steps inside
+        }
+        stackTrace.add(prevLastStep);  //add current last step to stack trace
+        return stackTrace;
+    }
+
+    public String formatResult(String executionResult) {
 
         boolean runIsCanceled = false;
         JsonArray array = (JsonArray) (parser.parse(executionResult));
@@ -296,6 +463,23 @@ public class OOAccessibilityLayer {
         return resultBuilder.toString();
 
     }
+
+    private static CookieStore handleCsrfCookies(CookieStore cookieStore){
+        List<Cookie> cookies = new ArrayList<Cookie>();
+        for (Cookie cookie : cookieStore.getCookies()){
+            if (!cookie.getName().contains("CSRF")){
+                cookies.add(cookie);
+            }
+        }
+
+        cookieStore.clear();
+
+        for (Cookie cookie : cookies){
+            cookieStore.addCookie(cookie);
+        }
+        return cookieStore;
+    }
+
 
     private static void setJSONExecutionResult(String executionResult) {
 

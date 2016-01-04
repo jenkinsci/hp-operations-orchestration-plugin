@@ -28,13 +28,15 @@ public class OOAccessibilityUtils {
 
     public static String getFlowID10x(String selectedFlow, String urlString) throws IOException {
 
-        selectedFlow = selectedFlow.substring(1);
         final URI uri = OOBuildStep.URI(urlString);
         final HttpGet httpGet = new HttpGet(uri);
         httpGet.setHeader("Content-Type", "application/json");
         if (OOBuildStep.getEncodedCredentials()!=null) {
             httpGet.addHeader("Authorization", "Basic " + new String(OOBuildStep.getEncodedCredentials()));
         }
+
+        if(selectedFlow.substring(0,1).contains("/"))
+            selectedFlow = selectedFlow.replaceFirst("/","").trim();
 
         HttpResponse response = client.execute(httpGet);
         HttpEntity entity = response.getEntity();
@@ -72,6 +74,33 @@ public class OOAccessibilityUtils {
 
         return element.get("version").getAsString();
 
+    }
+
+    public static boolean isOoVersionLowerThen1010(String urlString) throws IOException {
+        JsonObject element;
+
+        final URI uri = OOBuildStep.URI(urlString);
+        final HttpGet httpGet = new HttpGet(uri);
+
+        if (OOBuildStep.getEncodedCredentials()!=null) {
+            httpGet.addHeader("Authorization", "Basic " + new String(OOBuildStep.getEncodedCredentials()));
+        }
+
+        HttpResponse response = client.execute(httpGet);
+        HttpEntity entity = response.getEntity();
+        InputStream is = entity.getContent();
+
+        if (response.getStatusLine().getStatusCode()==404){
+            return true;
+        }
+
+        element = (JsonObject) (parser.parse(convertStreamToString(is)));
+
+        if (element.get("version").getAsString().compareTo("10.10") < 0){
+            return true;
+        }else{
+            return false;
+        }
     }
 
     protected static String getStringFromResponse(HttpGet httpGet) throws IOException {
