@@ -624,7 +624,6 @@ public class OOBuildStep extends Builder {
             if (key.startsWith("f_")) {
                 selectedFlowS = basepath + "/" + buildVariables.get(key);
             }
-            listener.getLogger().println("key:"+key+":"+buildVariables.get(key));
         }
 
         Assert.isTrue(selectedOOServer != null, "HP Operations Orchestration Server must be selected");
